@@ -89,6 +89,19 @@ _collection = _get_or_build_collection()
 _SKILLS_BY_ID: dict[str, Skill] = {skill["id"]: skill for skill in SKILLS}
 
 
+def embed(text: str) -> list[float]:
+    """Embed a single string using the same model/instance the skill index uses.
+
+    WHY expose this instead of having cache.py import the private _embedder
+    directly: keeps rag.py's internal singleton private, and gives Step 4's
+    cache the exact same embedding space search() uses, so a "similar query"
+    means the same thing in both places.
+    ALTERNATIVE: cache.py loads its own SentenceTransformer instance — wastes
+    ~90MB of RAM loading the same model twice for no benefit.
+    """
+    return _embedder.encode([text])[0].tolist()
+
+
 def search(query: str, top_k: int = 4) -> list[Skill]:
     """Return the top_k skills whose embedding is closest to the query.
 
