@@ -5,6 +5,7 @@
 # frontend never sees an API key.
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -16,10 +17,11 @@ from cache import SimilarityCache
 from knowledge_base import SKILLS, Skill
 from rag import search
 
-# WHY load_dotenv() here rather than relying on the shell environment: keeps
-# `uvicorn main:app` runnable directly in local dev without the developer
-# having to export GROQ_API_KEY manually every session.
-load_dotenv()
+# WHY an explicit path instead of bare load_dotenv(): that variant searches
+# from the current working directory, which differs between `uvicorn
+# main:app` (run from backend/) and `pytest` (may run from the repo root).
+# Anchoring to this file's directory makes .env loading independent of CWD.
+load_dotenv(Path(__file__).parent / ".env")
 
 app = FastAPI(title="Career Skill Navigator API")
 
