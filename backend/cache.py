@@ -1,9 +1,10 @@
 # backend/cache.py
 #
-# A semantic cache that sits in front of the Claude API call in Step 5's
-# /chat endpoint. Exact-string caching would miss most real hits, since users
+# A semantic cache that sits in front of the Groq API call in Step 5's /chat
+# endpoint. Exact-string caching would miss most real hits, since users
 # rarely phrase the same intent identically — this compares queries by
-# embedding similarity instead.
+# embedding similarity instead. See DEFAULT_SIMILARITY_THRESHOLD below for
+# measured numbers on how well that actually works in practice.
 #
 # WHY a class with get()/set() instead of two free functions: the cache needs
 # to hold mutable state (the list of cached entries) between calls, and a
@@ -19,10 +20,32 @@ from dataclasses import dataclass
 from rag import embed
 
 # WHY 0.92: matches the threshold documented in CLAUDE.md's architecture
-# diagram. High enough that two different questions ("learn React" vs "learn
-# Vue") don't collide, but forgiving enough that paraphrases of the same
-# question ("skills for backend jobs" vs "what backend skills should I learn")
-# do hit.
+# diagram. Measured behaviour against a cached "what should I learn for
+# backend jobs?" (all-MiniLM-L6-v2, cosine):
+#
+#     1.0000  HIT   what should I learn for backend jobs?   (exact)
+#     0.9935  HIT   What should I learn for backend jobs    (case/punct only)
+#     0.8765  miss  what should I learn for FRONTEND jobs?
+#     0.8735  miss  which backend skills should I learn
+#     0.8446  miss  skills for backend jobs
+#     0.6596  miss  how do I become a backend engineer
+#    -0.0274  miss  best pizza in Chicago
+#
+# So be honest about what this is: at 0.92 it catches casing and punctuation
+# variants, not true paraphrases. An earlier version of this comment claimed
+# paraphrases like "skills for backend jobs" do hit — they do not.
+#
+# WHY NOT just lower the threshold: look at rows 3 and 4. The *frontend*
+# question (0.8765) scores HIGHER than a legitimate backend paraphrase
+# (0.8735). There is no threshold that admits the paraphrase while rejecting
+# the wrong-domain query — the distributions overlap, so loosening this trades
+# a cheap miss for a confidently wrong answer. A miss costs one Groq call; a
+# false hit serves backend advice to someone asking about frontend.
+#
+# The real fix would be to cache on the retrieved skill IDs rather than on the
+# raw query (two questions retrieving the same 4 skills are genuinely
+# interchangeable), which sidesteps the overlap entirely. Left as a documented
+# improvement rather than silently tuning a number that cannot work.
 DEFAULT_SIMILARITY_THRESHOLD = 0.92
 
 
