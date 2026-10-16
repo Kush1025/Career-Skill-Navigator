@@ -22,7 +22,3 @@ frontend/.env.local
 .vscode/
 .DS_Store
 Thumbs.db
-
-# Local build-process notes — kept out of the public repo by choice.
-# This file still drives local Claude Code sessions; it just isn't published.
-CLAUDE.md
